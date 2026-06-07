@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@keyframes wow-pulse {
+    0%   { box-shadow: 0 0 0 0px rgba(124, 58, 237, 0.7); }
+    50%  { box-shadow: 0 0 0 10px rgba(124, 58, 237, 0); }
+    100% { box-shadow: 0 0 0 0px rgba(124, 58, 237, 0); }
+}
+
+.wow-highlight-card {
+    outline: 3px solid #7c3aed !important;
+    outline-offset: 3px;
+    background-color: rgba(124, 58, 237, 0.1) !important;
+    animation: wow-pulse 0.8s ease-out infinite;
+}
+
+.wow-highlight-row {
+    outline: 3px solid #7c3aed !important;
+    outline-offset: -3px;
+    background-color: rgba(124, 58, 237, 0.1) !important;
+    animation: wow-pulse 0.8s ease-out infinite;
+}

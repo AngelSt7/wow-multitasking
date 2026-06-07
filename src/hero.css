@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@source "../components/**/*.{ts,tsx}";
+@source "../ts/**/*.{ts,tsx}";

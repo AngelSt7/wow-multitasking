@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Wow Multitasking",
+  "version": "1.0",
+  "description": "A Chrome extension for multitasking in Wow Peru.",
+    "action": {
+    "default_popup": "index.html" 
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["*://api.wowperu.pe/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["*://sgc.wowperu.pe/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://sgc.wowperu.pe/*"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_start" 
+    },
+      {
+    "matches": ["*://sgc.wowperu.pe/instalaciones_v2/configuracion-instaladores/*"],
+    "js": ["src/content/content-instaladores.ts"],
+    "run_at": "document_end"
+  }
+  ]
+}

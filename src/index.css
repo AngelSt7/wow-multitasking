@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "@heroui/styles"; 
+
+@source "./popup/**/*.{ts,tsx}";
+@source "./content/**/*.{ts,tsx}"; 
+@source "./main.tsx";
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  width: 350px;
+  min-height: 490px;
+  margin: 0;
+  padding: 0;
+}
