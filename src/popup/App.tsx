@@ -4,12 +4,10 @@ import {
   Zap, Search,
   Triangle, AlignRight,
   MousePointerClick, PinIcon,
-  Share2,
-  LogIn,
+  Share2
 } from 'lucide-react'
 import type { SwitchId, SwitchItem, UserPreferences } from '../interfaces'
 import { useChromeStorage } from '../hooks/useGoogleStorage'
-import { Button } from '@heroui/react'
 
 type SpeedDialPosition = 'corner' | 'vertical'
 type SpeedDialMode = 'onPress' | 'alwaysOpen'
@@ -73,14 +71,14 @@ function saveMultitaskingToChrome(prefs: MultitaskingPrefs): Promise<void> {
 
 const switches: SwitchItem[] = [
   { id: 'fast', icon: Zap, name: 'Fijar fecha', desc: 'Fijar fechas en ventana' },
-  // { id: 'dark', icon: Moon, name: 'Detalle Boleta', desc: 'Ventana de detalles' },
-  // { id: 'stats', icon: BarChart2, name: 'Mapa SGC', desc: 'Mini mapa SGC' },
+  // { id: 'visor', icon: Binoculars, name: 'Visor garantia - dilación', desc: 'Botón flotante de multitarea' },
   { id: 'popover', icon: Search, name: 'Vista rápida', desc: 'Popover con info de slots' },
 ]
 
 const defaultPrefs: UserPreferences = {
   fast: false, multi: false, notif: false,
   dark: false, stats: false, popover: false,
+  visor: false,
 }
 
 const positionOptions = [
@@ -92,8 +90,6 @@ const modeOptions = [
   { value: 'onPress' as SpeedDialMode, label: 'Al presionar', Icon: MousePointerClick },
   { value: 'alwaysOpen' as SpeedDialMode, label: 'Siempre abierto', Icon: PinIcon },
 ]
-
-type MODE = "BETA" | "OFFICIAL"
 
 function TabGroup<T extends string>({
   label,
@@ -135,7 +131,10 @@ function TabGroup<T extends string>({
 
 function App() {
 
-  const mode: MODE = "OFFICIAL"
+  const [shareStatus, setShareStatus] = useState<
+    "idle" | "loading" | "success"
+  >("idle");
+
 
   const { getItem, setItem } = useChromeStorage()
 
@@ -144,36 +143,6 @@ function App() {
   const [mtPrefs, setMtPrefs] = useState<MultitaskingPrefs>(defaultMultitasking)
 
   const [userName, setUserName] = useState<string>('')
-  const [shareState, setShareState] = useState<'idle' | 'waiting' | 'paired'>('idle')
-  const [shareToken, setShareToken] = useState<string>('')
-  const [joinedUser, setJoinedUser] = useState<string>('')
-
-  const [joinToken, setJoinToken] = useState<string>('')
-  const [joinError, setJoinError] = useState<string>('')
-
-
-  const handleJoin = async () => {
-    setJoinError('')
-    if (!joinToken || joinToken.length < 4) {
-      setJoinError('Ingresa un token válido')
-      return
-    }
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab.id) return
-    try {
-      const response = await fetch(`http://localhost:3000/shared-session/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participantName: userName, token: joinToken }),
-      })
-      const json = await response.json()
-      if (!response.ok) { setJoinError(json.message || 'Token inválido'); return }
-      chrome.tabs.sendMessage(tab.id, { type: 'APPLY_SESSION_DATA', data: json.data.session.sessionData })
-      setJoinToken('')
-    } catch {
-      setJoinError('No se pudo conectar al servidor')
-    }
-  }
 
   useEffect(() => {
     const init = async () => {
@@ -216,45 +185,6 @@ function App() {
     if (isLoaded) saveMultitaskingToChrome(mtPrefs)
   }, [mtPrefs, isLoaded])
 
-  const handleShare = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab.id) return
-
-    console.log(`[Popup] Solicitando datos de sesión al content script...`)
-
-    chrome.tabs.sendMessage(tab.id, { type: 'GET_SESSION_DATA' }, async (res) => {
-      if (chrome.runtime.lastError || !res?.data) return
-
-      const response = await fetch('http://localhost:3000/shared-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hostName: userName,
-          sessionData: res.data,
-          participants: [],
-        }),
-      })
-
-      const json = await response.json()
-      const token: string = json.data.token
-
-      setShareToken(token)
-      setShareState('waiting')
-
-      const ws = new WebSocket('wss://http://localhost:3000')  
-
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data)
-        if (msg.event === 'participant_joined') {
-          setJoinedUser(msg.participantName)
-          setShareState('paired')
-          ws.close()
-        }
-      }
-    })
-  }
-
-
   const toggle = (id: SwitchId) =>
     setActive(prev => ({ ...prev, [id]: !prev[id] }))
 
@@ -263,6 +193,64 @@ function App() {
 
   const setMode = (mode: SpeedDialMode) =>
     setMtPrefs(prev => ({ ...prev, mode }))
+
+  const getSession = async () => {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    if (!tab?.id) {
+      throw new Error("No se encontró la pestaña activa");
+    }
+
+    return chrome.tabs.sendMessage(tab.id, {
+      type: "SHARE_SESSION",
+    });
+  };
+
+  const shareSession = async () => {
+    const response = await getSession();
+
+    if (!response?.success) {
+      throw new Error(
+        response?.error ?? "Error compartiendo sesión"
+      );
+    }
+
+    const url = new URL(
+      "https://sgc.wowperu.pe/auth/login"
+    );
+
+    url.searchParams.set(
+      "sessionId",
+      response.code
+    );
+
+    const shareUrl = url.toString();
+
+    await navigator.clipboard.writeText(
+      shareUrl
+    );
+
+    return shareUrl;
+  };
+
+  const handleShare = async () => {
+    try {
+      setShareStatus("loading");
+
+      await shareSession();
+
+      setShareStatus("success");
+
+      setTimeout(() => {
+        setShareStatus("idle");
+      }, 2000);
+    } catch {
+      setShareStatus("idle");
+    }
+  };
 
   if (!isLoaded) return <div className="bg-[#1a1a1a] w-85 h-150" />
 
@@ -342,138 +330,44 @@ function App() {
           />
         </div>
 
-        {mode !== "OFFICIAL" && (
-          <>
-            <div className="border-t border-[#2a2a2a] mx-3" />
+        <div className="border-t border-[#2a2a2a] mx-3" />
 
 
-            <p className="text-[#555] text-[10px] font-bold uppercase tracking-widest px-5 pt-4 pb-2">
-              Compartir sesión
+        <p className="text-[#555] text-[10px] font-bold uppercase tracking-widest px-5 pt-4 pb-2">
+          Compartir sesión
+        </p>
+        <div className="px-3 pb-4 flex flex-col gap-2">
+          <div className="bg-[#222] border border-[#2c2c2c] rounded-xl px-4 py-3 flex flex-col gap-3">
+
+            <p className="text-[#555] text-[10.5px]">
+              Sesión de <span className="text-orange-400 font-semibold">{userName}</span>
             </p>
-            <div className="px-3 pb-4 flex flex-col gap-2">
-              <div className="bg-[#222] border border-[#2c2c2c] rounded-xl px-4 py-3 flex flex-col gap-3">
 
-                {userName && (
-                  <p className="text-[#555] text-[10.5px]">
-                    Sesión de <span className="text-orange-400 font-semibold">{userName}</span>
-                  </p>
-                )}
-
-                {shareState === 'idle' && (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
-                        <Share2 size={15} className="text-orange-400" strokeWidth={1.8} />
-                      </div>
-                      <div>
-                        <p className="text-[#ddd] text-sm font-medium">Compartir sesión activa</p>
-                        <p className="text-[#555] text-[10.5px]">Genera un token para que otro usuario se una</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleShare}
-                      className="w-full flex items-center justify-center gap-2 rounded-[10px] py-2.5
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <Share2 size={15} className="text-orange-400" strokeWidth={1.8} />
+              </div>
+              <div>
+                <p className="text-[#ddd] text-sm font-medium">Compartir sesión activa</p>
+                <p className="text-[#555] text-[10.5px]">Comparte tu sesión actual con otros usuarios</p>
+              </div>
+            </div>
+            <button
+              onClick={async () => await handleShare()}
+              className="w-full flex items-center justify-center gap-2 rounded-[10px] py-2.5
                      border border-orange-500/40 bg-orange-500/10 text-orange-400
                      text-xs font-bold tracking-wide cursor-pointer
                      hover:bg-orange-500/20 hover:border-orange-500/60 transition-all duration-150 active:scale-[0.98]"
-                    >
-                      <Share2 size={14} strokeWidth={2} />
-                      Compartir sesión
-                    </button>
-                  </>
-                )}
+            >
+              <Share2 size={14} strokeWidth={2} />
+              {shareStatus === "loading" && "Compartiendo..."}
+              {shareStatus === "success" && "✓ Copiado"}
+              {shareStatus === "idle" && "Compartir sesión"}
+            </button>
 
-                {shareState === 'waiting' && (
-                  <div className="flex flex-col items-center gap-3 py-1">
-                    <p className="text-[#888] text-[10.5px]">Comparte este token</p>
-                    <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl px-6 py-3">
-                      <span className="text-orange-400 font-mono font-black text-2xl tracking-[0.2em]">
-                        {shareToken}
-                      </span>
-                    </div>
-                    <p className="text-[#555] text-[10px] flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse inline-block" />
-                      Esperando que alguien se una...
-                    </p>
-                    <button
-                      onClick={() => setShareState('idle')}
-                      className="text-[#444] text-[10px] hover:text-[#666] transition-colors cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
+          </div>
+        </div>
 
-                {shareState === 'paired' && (
-                  <div className="flex flex-col items-center gap-3 py-1">
-                    <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-                      <span className="text-green-400 text-lg">✓</span>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[#ddd] text-sm font-semibold">¡Emparejado!</p>
-                      <p className="text-[#555] text-[10.5px] mt-0.5">
-                        <span className="text-green-400 font-medium">{joinedUser}</span> se unió a tu sesión
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setShareState('idle'); setShareToken(''); setJoinedUser('') }}
-                      className="text-[#444] text-[10px] hover:text-[#666] transition-colors cursor-pointer"
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                )}
-
-              </div>
-            </div>
-
-
-            {/* ─── Unirse a sesión ─────────────────────────────────── */}
-            <div className="border-t border-[#2a2a2a] mx-3" />
-            <p className="text-[#555] text-[10px] font-bold uppercase tracking-widest px-5 pt-4 pb-2">
-              Unirse a sesión
-            </p>
-            <div className="px-3 pb-4 flex flex-col gap-2">
-              <div className="bg-[#222] border border-[#2c2c2c] rounded-xl px-4 py-3 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <LogIn size={15} className="text-orange-400" strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <p className="text-[#ddd] text-sm font-medium">Unirme a una sesión</p>
-                    <p className="text-[#555] text-[10.5px]">Ingresa el token que te compartieron</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    maxLength={8}
-                    value={joinToken}
-                    onChange={(e) => setJoinToken(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                    placeholder="ABC123"
-                    className="flex-1 bg-[#1a1a1a] border border-[#2c2c2c] rounded-lg px-3 py-2
-                   text-orange-400 font-mono font-black text-lg tracking-[0.2em] text-center
-                   outline-none focus:border-orange-500/50 transition-colors placeholder:text-[#333]
-                   placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:font-normal"
-                  />
-                  <button
-                    onClick={handleJoin}
-                    className="flex items-center gap-1.5 rounded-[10px] px-3 py-2.5
-                   border border-orange-500/40 bg-orange-500/10 text-orange-400
-                   text-xs font-bold tracking-wide cursor-pointer whitespace-nowrap
-                   hover:bg-orange-500/20 hover:border-orange-500/60 transition-all duration-150 active:scale-[0.98]"
-                  >
-                    <LogIn size={13} strokeWidth={2} />
-                    Unirme
-                  </button>
-                </div>
-                {joinError && (
-                  <p className="text-red-400 text-[10px] text-center">{joinError}</p>
-                )}
-              </div>
-            </div>
-          </>
-        )}
 
         <div className="flex justify-between items-center px-5 py-3 border-t border-[#222]">
           <span className="text-[#444] text-[11px]">

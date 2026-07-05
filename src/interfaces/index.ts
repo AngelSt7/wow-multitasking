@@ -1,6 +1,7 @@
 export interface UserPreferences {
   fast: boolean;
   multi: boolean;
+  visor: boolean;
   notif: boolean;
   dark: boolean;
   stats: boolean;

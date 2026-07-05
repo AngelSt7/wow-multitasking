@@ -1,6 +1,4 @@
-import { createRoot } from "react-dom/client";
 import type { TecnicoResumen } from "../types/wow";
-import { createElement } from "react";
 
 export const runSearchScript = () => {
   const nativeSearchButton = document.querySelector(
@@ -9,6 +7,7 @@ export const runSearchScript = () => {
 
   if (nativeSearchButton) {
     nativeSearchButton.click();
+    console.log('Search button clicked via native selector.');
   } else {
     const altButton = document.querySelector('ic-icon[ng-reflect-icon*="object"]')?.closest('button');
     if (altButton) {
@@ -597,7 +596,7 @@ export const runSearchScript = () => {
     // ── 2. Identificar Unidad y configurar Diseño Adaptativo ──
     const unidad: string = (data['UNIDAD'] || '').toUpperCase();
     const isEmpresarial: boolean = unidad.includes('EMPRESARIAL');
-    
+
     const brandColor: string = isEmpresarial ? '#662D91' : '#0078d7';
     const softBg: string = isEmpresarial ? 'rgba(102, 45, 145, 0.04)' : 'rgba(0, 120, 215, 0.04)';
     const buttonText: string = isEmpresarial ? 'Copiar información de cliente EMPRESARIAL' : 'Copiar información del cliente';
@@ -643,7 +642,7 @@ export const runSearchScript = () => {
     btn.id = 'btn-copiar-cliente';
 
     // Icono dinámico: Reloj para Empresarial, Portapapeles estándar para Residencial
-    const iconSvg = isEmpresarial 
+    const iconSvg = isEmpresarial
       ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px; transition: transform 0.2s;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`
       : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px; transition: transform 0.2s;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
 
@@ -690,11 +689,11 @@ export const runSearchScript = () => {
 
       let text = '';
       text += `✅ SIGUIENTE\n${'─'.repeat(30)}\n`;
-      
+
       if (isEmpresarial && tipoVisita.includes('INSTALACIÓN')) {
         text += `⚠️ *📢 (NO REPORTAR LA ORDEN SIN AUTORIZACION)*\n`;
       }
-      
+
       text += `• TIPO DE VISITA: *${tipoVisita || '-'}*\n`;
       text += `• HORARIO AGENDADO: *${horarioAgendado}*\n`;
       text += `• ESTADO: *${g('ESTADO DEL REPORTE')}*\n`;
@@ -703,7 +702,7 @@ export const runSearchScript = () => {
       text += `• ${g('TIPO DOCUMENTO')}: ${g('NRO DOCUMENTO')}\n`;
       text += `• UNIDAD: ${g('UNIDAD')}\n`;
       if (g('TIPO DE SERVICIO') !== '-') text += `• TIPO DE SERVICIO: ${g('TIPO DE SERVICIO')}\n`;
-      
+
       text += `\n👤 CLIENTE\n`;
       text += `• NOMBRE: ${g('CLIENTE')}\n`;
       text += `• CELULAR: ${g('CELULAR')}\n`;
@@ -747,7 +746,7 @@ export const runSearchScript = () => {
 
       navigator.clipboard.writeText(text.trim()).then((): void => {
         const oldHTML: string = btn.innerHTML;
-        btn.style.backgroundColor = '#10b981'; 
+        btn.style.backgroundColor = '#10b981';
         btn.style.borderColor = '#10b981';
         btn.style.color = '#ffffff';
         btn.innerHTML = `
@@ -912,8 +911,7 @@ export const runSearchScript = () => {
       // Nombre del técnico
       const tecnicoEl = row.querySelector<HTMLElement>('[data-copy-tecnico="true"]');
       const nombre = tecnicoEl
-        ? `${(tecnicoEl.childNodes[0] as Text)?.textContent?.trim() ?? ''} ${
-            tecnicoEl.querySelector('span')?.textContent?.trim() ?? ''
+        ? `${(tecnicoEl.childNodes[0] as Text)?.textContent?.trim() ?? ''} ${tecnicoEl.querySelector('span')?.textContent?.trim() ?? ''
           }`.trim()
         : '—';
 
@@ -1030,17 +1028,17 @@ export const runSearchScript = () => {
   if (dialogExistente) injectHeader(dialogExistente);
 })();
 
-((): void => {
 
+
+((): void => {
   type Visita = {
     fecha: Date;
+    fechaSolicitud: Date | null;
     tecnico: string;
     cuadrilla: string;
     tipo: string;
   };
-
   type Caso = 'verde' | 'ambar' | 'rojo-fuerte' | 'rojo-suave';
-
   type Theme = {
     border: string;
     headBg: string;
@@ -1055,7 +1053,6 @@ export const runSearchScript = () => {
     enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
     julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11
   };
-
   const THEMES: Record<Caso, Theme> = {
     verde: { border: '#3B6D11', headBg: '#EAF3DE', headColor: '#1A4A08', diasColor: '#1A4A08', icon: '✓', label: 'SIN REINCIDENCIA' },
     ambar: { border: '#BA7517', headBg: '#FFF3D6', headColor: '#633806', diasColor: '#BA7517', icon: '⚠', label: 'MISMO TÉCNICO' },
@@ -1064,17 +1061,29 @@ export const runSearchScript = () => {
   };
 
   function parseFecha(str: string): Date | null {
-    if (!str) return null;
-    const m = str.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d{4})/i);
-    if (m) {
-      const mes = MESES[m[2].toLowerCase()] ?? 0;
-      return new Date(Number(m[3]), mes, Number(m[1]));
+  if (!str) return null;
+
+  const m = str.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d{4})(?:\s+(\d+):(\d+)\s*(AM|PM)?)?/i);
+  if (m) {
+    const mes = MESES[m[2].toLowerCase()] ?? 0;
+    let hh = m[4] ? Number(m[4]) : 0;
+    const mm = m[5] ? Number(m[5]) : 0;
+    const meridiem = m[6]?.toUpperCase();
+
+    if (hh <= 12) {
+      if (meridiem === 'PM' && hh !== 12) hh += 12;
+      if (meridiem === 'AM' && hh === 12) hh = 0;
     }
-    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-      return new Date(str.substring(0, 10) + 'T00:00:00');
-    }
-    return null;
+
+    return new Date(Number(m[3]), mes, Number(m[1]), hh, mm, 0);
   }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return new Date(str.substring(0, 10) + 'T00:00:00');
+  }
+
+  return null;
+}
 
   function getField(card: Element, labelText: string): string {
     const labels = card.querySelectorAll<HTMLElement>('.label');
@@ -1093,21 +1102,138 @@ export const runSearchScript = () => {
     return '';
   }
 
+  function isValidVisita(card: Element): boolean {
+    const estado = getField(card, 'Estado:').toLowerCase();
+    if (estado === 'anulado') return false;
+    const tecnico = getField(card, 'Asignado a:').trim();
+    if (!tecnico || tecnico.toLowerCase().includes('sin asignacion')) return false;
+    return true;
+  }
+
+  function buildAlertaDilacion(fechaSolicitud: Date): HTMLDivElement {
+    const horasDesde = (Date.now() - fechaSolicitud.getTime()) / 36e5;
+
+    // Formato de tiempo transcurrido
+    const fmtTiempo = (h: number): string => {
+      if (h < 1) {
+        const mins = Math.floor(h * 60);
+        return `${mins}min`;
+      }
+      if (h < 24) {
+        const hh = Math.floor(h);
+        const mm = Math.floor((h - hh) * 60);
+        return mm > 0 ? `${hh}h ${mm}min` : `${hh}h`;
+      }
+      return `${Math.floor(h / 24)}d ${Math.floor(h % 24)}h`;
+    };
+
+    // Determinar nivel
+    type Nivel = {
+      nivel: number;
+      label: string;
+      bg: string;
+      color: string;
+      badge: string;
+      mostrarRegenerar: boolean;
+    };
+
+    const getNivel = (h: number): Nivel => {
+      if (h <= 2) return {
+        nivel: 1,
+        label: 'Excelente',
+        bg: '#dcfce7',
+        color: '#14532d',
+        badge: '#86efac',
+        mostrarRegenerar: false,
+      };
+      if (h <= 24) return {
+        nivel: 2,
+        label: 'Buena',
+        bg: '#fef9c3',
+        color: '#713f12',
+        badge: '#fde047',
+        mostrarRegenerar: false,
+      };
+      if (h <= 48) return {
+        nivel: 3,
+        label: 'Moderada',
+        bg: '#fed7aa',
+        color: '#7c2d12',
+        badge: '#fb923c',
+        mostrarRegenerar: false,
+      };
+      if (h <= 72) return {
+        nivel: 4,
+        label: 'Medianamente grave',
+        bg: '#fca5a5',
+        color: '#7f1d1d',
+        badge: '#f87171',
+        mostrarRegenerar: false,
+      };
+      // > 72h
+      return {
+        nivel: 5,
+        label: 'Crítica',
+        bg: '#fecaca',
+        color: '#7f1d1d',
+        badge: '#ef4444',
+        mostrarRegenerar: true,
+      };
+    };
+
+    const n = getNivel(horasDesde);
+    const tiempoStr = fmtTiempo(horasDesde);
+
+    const alerta = document.createElement('div');
+    alerta.style.cssText = `
+    background: ${n.bg};
+    color: ${n.color};
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    letter-spacing: .2px;
+  `;
+
+    const regenerarBadge = n.mostrarRegenerar
+      ? `<span style="background:rgba(255,255,255,0.35);border-radius:4px;padding:2px 8px;font-size:10px;white-space:nowrap">
+        ⚠️ REGENERAR ORDEN
+       </span>`
+      : '';
+
+    alerta.innerHTML = `
+    <span style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:14px">⏰</span>
+      Solicitud hace <b>${tiempoStr}</b>
+      &nbsp;·&nbsp;
+      <span style="background:${n.badge};color:${n.color};border-radius:3px;padding:1px 6px;font-size:10px">
+        N${n.nivel} — ${n.label}
+      </span>
+    </span>
+    ${regenerarBadge}
+  `;
+
+    return alerta;
+  }
+
   function buildBanner(caso: Caso, visitas: Visita[], dias: number | null): HTMLDivElement {
     const t = THEMES[caso];
     const v2 = visitas[1] ?? null;
-
     const div = document.createElement('div');
     div.id = BANNER_ID;
     div.style.cssText = `
       margin: 8px 0 12px 0;
       border: 2px solid ${t.border};
       border-radius: 8px;
-      overflow: hidden;       /* ← FIX SCROLL: sin altura fija, sin overflow-y */
+      overflow: hidden;
       font-family: inherit;
       font-size: 13px;
     `;
 
+    // ── Header principal ──
     const head = document.createElement('div');
     head.style.cssText = `
       background: ${t.headBg};
@@ -1118,14 +1244,18 @@ export const runSearchScript = () => {
       align-items: center;
       gap: 8px;
     `;
-
     const labelExtra = caso === 'rojo-fuerte' && v2
       ? ` — DEBES MOVER ESTA GARANTÍA A "${v2.tecnico}"`
       : '';
-
     head.innerHTML = `<span style="font-size:16px">${t.icon}</span> GARANTÍA — ${t.label}${labelExtra}`;
     div.appendChild(head);
 
+    const fechaSolicitudV1 = visitas[0].fechaSolicitud;
+    if (fechaSolicitudV1) {
+      div.appendChild(buildAlertaDilacion(fechaSolicitudV1));
+    }
+
+    // ── Body ──
     const body = document.createElement('div');
     body.style.cssText = `padding: 10px 14px; background: #fff;`;
 
@@ -1143,11 +1273,17 @@ export const runSearchScript = () => {
       </tr>
     `).join('');
 
+    const notaDias = dias !== null && visitas[0].fechaSolicitud && visitas[1]
+      ? `F. Visita anterior (${fmt(visitas[1].fecha)}) vs F. Solicitud actual (${fmt(visitas[0].fechaSolicitud)})`
+      : '';
+
     body.innerHTML = `
       ${dias !== null ? `
-        <div style="margin-bottom:8px;color:#555">
+        <div style="margin-bottom:4px;color:#555">
           Días entre visitas: <b style="color:${t.diasColor}">${dias} días</b>
-        </div>` : ''}
+        </div>
+        ${notaDias ? `<div style="margin-bottom:8px;color:#999;font-size:11px">${notaDias}</div>` : ''}
+      ` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="background:#eee;color:#555;font-size:11px;text-transform:uppercase">
@@ -1175,7 +1311,6 @@ export const runSearchScript = () => {
       'mat-dialog-container mat-tab-group'
     );
     if (!tabGroup) return;
-
     if (tabGroup.querySelector('#' + BANNER_ID)) return;
 
     const bodyWrapper = tabGroup.querySelector<HTMLElement>('.mat-tab-body-wrapper');
@@ -1187,17 +1322,20 @@ export const runSearchScript = () => {
     if (!tabContent) return;
 
     const visitas: Visita[] = [];
+
     tabContent.querySelectorAll('.bg-white.shadow').forEach(card => {
       const el = card as Element;
+      if (!isValidVisita(el)) return;
+
       const tecnico = getField(el, 'Asignado a:');
       const cuadrilla = getField(el, 'Cuadrilla:');
       const tipo = getField(el, 'Tipo:');
-      const fechaStr =
-        getField(el, 'F. Visita:') ||
-        getField(el, 'F. completado:');
+      const fechaStr = getField(el, 'F. Visita:') || getField(el, 'F. completado:');
       const fecha = parseFecha(fechaStr);
+      const fechaSolicitud = parseFecha(getField(el, 'F. Solicitud:'));
+
       if (fecha && tecnico) {
-        visitas.push({ fecha, tecnico, cuadrilla, tipo });
+        visitas.push({ fecha, fechaSolicitud, tecnico, cuadrilla, tipo });
       }
     });
 
@@ -1217,8 +1355,9 @@ export const runSearchScript = () => {
 
     const v1 = visitas[0];
     const v2 = visitas[1] ?? null;
-    const dias = v2
-      ? Math.round((v1.fecha.getTime() - v2.fecha.getTime()) / 86400000)
+
+    const dias = v2 && v1.fechaSolicitud
+      ? Math.round((v1.fechaSolicitud.getTime() - v2.fecha.getTime()) / 86400000)
       : null;
 
     let caso: Caso;
@@ -1236,9 +1375,7 @@ export const runSearchScript = () => {
     }
 
     const banner = buildBanner(caso, visitas, dias);
-
     tabGroup.insertBefore(banner, bodyWrapper);
-
   }
 
   const w = window as Window & { _garantiaObserver?: MutationObserver };
@@ -1250,7 +1387,6 @@ export const runSearchScript = () => {
 
   applyGarantiaBanner();
 })();
-
 
 ((): void => {
   const HIGHLIGHT_ID = 'garantia-highlight-active';
@@ -1283,10 +1419,21 @@ export const runSearchScript = () => {
     return '';
   }
 
+  function isValidCard(card: Element): boolean {
+    // Ignorar anuladas
+    const estado = getFieldFromCard(card, 'Estado:').toLowerCase();
+    if (estado === 'anulado') return false;
+
+    // Ignorar sin asignación
+    const tecnico = getFieldFromCard(card, 'Asignado a:').trim();
+    if (!tecnico || tecnico.toLowerCase().includes('sin asignacion')) return false;
+
+    return true;
+  }
+
   const w = window as Window & { _highlightObserver?: MutationObserver };
 
   function applyHighlight(): void {
-    // ── Pausar observer antes de tocar el DOM ──
     w._highlightObserver?.disconnect();
 
     try {
@@ -1309,24 +1456,39 @@ export const runSearchScript = () => {
       });
 
       const cards = Array.from(tabContent.querySelectorAll<HTMLElement>('.bg-white.shadow'));
-      const candidates: { card: HTMLElement; fecha: Date }[] = [];
+      const candidates: { card: HTMLElement; fechaSolicitud: Date }[] = [];
+
+      const now = new Date();
 
       for (const card of cards) {
+        // ← Filtros: no anuladas, no sin asignación
+        if (!isValidCard(card)) continue;
+
+        // ← Solo visitas que NO sean instalación
         const tipo = getFieldFromCard(card, 'Tipo:').toLowerCase();
-        if (tipo.includes('instalación de servicio') || tipo.includes('instalacion de servicio')) continue;
-        const fechaStr =
-          getFieldFromCard(card, 'F. Visita:') ||
-          getFieldFromCard(card, 'F. completado:');
-        const fecha = parseFecha(fechaStr);
-        if (fecha) candidates.push({ card, fecha });
+        if (
+          tipo.includes('instalación de servicio') ||
+          tipo.includes('instalacion de servicio')
+        ) continue;
+
+        // ← Ordenar por F. Solicitud más cercana a hoy
+        const solicitudStr = getFieldFromCard(card, 'F. Solicitud:');
+        const fechaSolicitud = parseFecha(solicitudStr);
+        if (!fechaSolicitud) continue;
+
+        candidates.push({ card, fechaSolicitud });
       }
 
       if (!candidates.length) return;
 
-      candidates.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+      // La más cercana al día de hoy (menor diferencia absoluta)
+      candidates.sort((a, b) =>
+        Math.abs(a.fechaSolicitud.getTime() - now.getTime()) -
+        Math.abs(b.fechaSolicitud.getTime() - now.getTime())
+      );
+
       const { card: latest } = candidates[0];
 
-      // Ya tiene el badge → no hacer nada
       if (latest.hasAttribute(`data-${HIGHLIGHT_ID}`)) return;
 
       latest.style.borderLeftColor = '#16a34a';
@@ -1354,7 +1516,6 @@ export const runSearchScript = () => {
       latest.insertBefore(badge, latest.firstChild);
 
     } finally {
-      // ── Reconectar siempre, incluso si hubo return anticipado ──
       w._highlightObserver?.observe(document.body, {
         childList: true,
         subtree: true,
@@ -1364,10 +1525,8 @@ export const runSearchScript = () => {
   }
 
   if (w._highlightObserver) w._highlightObserver.disconnect();
-
   w._highlightObserver = new MutationObserver(() => applyHighlight());
-
-  applyHighlight(); 
+  applyHighlight();
 })();
 
 (() => {
@@ -1431,7 +1590,7 @@ export const runSearchScript = () => {
       navigator.clipboard.writeText(text).then(() => {
         const originalText = btn.textContent;
         btn.textContent = 'OK';
-        btn.style.background = '#10b981'; 
+        btn.style.background = '#10b981';
         setTimeout(() => {
           btn.textContent = originalText;
           btn.style.background = color;
@@ -1447,7 +1606,6 @@ export const runSearchScript = () => {
 
     slots.forEach(node => {
       const slot = node as HTMLElement;
-
       if (slot.querySelector('.custom-btns')) return;
 
       const innerSlot = slot.querySelector('.slot-pendiente, .slot-urgente, .slot-programado, .slot-en-proceso') as HTMLElement | null;
@@ -1456,13 +1614,25 @@ export const runSearchScript = () => {
       const codigo = getCode(slot);
       if (codigo === 'SIN CODIGO') return;
 
+      // ─── Leer el tipo de servicio ─────────────────────────────
+      const tipoEl = innerSlot.querySelector<HTMLElement>('div > div:first-child');
+      const tipoTexto = tipoEl?.textContent?.trim().toLowerCase() ?? '';
+
+      const esInstalacion = tipoTexto.includes('instalac');
+      // ─────────────────────────────────────────────────────────
+
       const container = document.createElement('div');
       container.className = 'custom-btns';
       container.style.cssText = 'display:flex;gap:4px;margin-top:6px;justify-content:center;border-top:1px solid rgba(0,0,0,0.05);padding-top:4px;';
 
-      container.appendChild(makeBtn('IT', 'IMPOSIBILIDAD TÉCNICA', '#C71256', slot));
-      container.appendChild(makeBtn('SC', 'SIN CONTACTO', '#6366f1', slot));
-      container.appendChild(makeBtn('DS', 'DESISTE', '#f59e0b', slot));
+      if (esInstalacion) {
+        // Solo instalaciones tienen IT / SC / DS
+        container.appendChild(makeBtn('IT', 'IMPOSIBILIDAD TÉCNICA', '#C71256', slot));
+        container.appendChild(makeBtn('SC', 'SIN CONTACTO', '#6366f1', slot));
+        container.appendChild(makeBtn('DS', 'DESISTE', '#f59e0b', slot));
+      }
+      // Si no es instalación, container queda vacío → no lo agregues
+      if (container.children.length === 0) return;
 
       innerSlot.appendChild(container);
     });
@@ -1522,7 +1692,7 @@ export const runSearchScript = () => {
         color: '#475569',
         boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         lineHeight: '1.4',
-        pointerEvents: 'auto' 
+        pointerEvents: 'auto'
       };
       Object.assign(ubigeoBox.style, boxStyles);
 

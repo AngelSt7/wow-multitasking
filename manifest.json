@@ -1,29 +1,81 @@
 {
   "manifest_version": 3,
-  "name": "Wow Multitasking",
+  "name": "WOW Extension",
   "version": "1.0",
-  "description": "A Chrome extension for multitasking in Wow Peru.",
-    "action": {
-    "default_popup": "index.html" 
+  "description": "Herramienta de gestión para técnicos SGC — WOW Perú.",
+  "icons": {
+    "16":  "icons/wow-logo-16.png",
+    "48":  "icons/wow-logo-48.png",
+    "128": "icons/wow-logo-128.png"
   },
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["*://api.wowperu.pe/*"],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16":  "icons/wow-logo-16.png",
+      "48":  "icons/wow-logo-48.png",
+      "128": "icons/wow-logo-128.png"
+    },
+    "default_title": "WOW Extension"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "src/content/background-pronto.ts",
+    "type": "module"
+  },
+  "host_permissions": [
+    "*://api.wowperu.pe/*",
+    "*://app.geopronto.com/*"
+  ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*"],
-      "matches": ["*://sgc.wowperu.pe/*"]
+      "resources": [
+        "assets/*"
+      ],
+      "matches": [
+        "*://sgc.wowperu.pe/*"
+      ]
     }
   ],
   "content_scripts": [
     {
-      "matches": ["*://sgc.wowperu.pe/*"],
-      "js": ["src/content/index.ts"],
-      "run_at": "document_start" 
+      "matches": [
+        "*://sgc.wowperu.pe/*"
+      ],
+      "js": [
+        "src/content/index.ts"
+      ],
+      "run_at": "document_start"
     },
-      {
-    "matches": ["*://sgc.wowperu.pe/instalaciones_v2/configuracion-instaladores/*"],
-    "js": ["src/content/content-instaladores.ts"],
-    "run_at": "document_end"
-  }
+    {
+      "matches": [
+        "*://sgc.wowperu.pe/instalaciones_v2/configuracion-instaladores/*"
+      ],
+      "js": [
+        "src/content/content-instaladores.ts"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://sgc.wowperu.pe/*"
+      ],
+      "js": [
+        "src/content/share-session.ts"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://app.geopronto.com/*"
+      ],
+      "js": [
+        "src/content/pronto-auth.ts"
+      ],
+      "run_at": "document_end"
+    }
   ]
 }
