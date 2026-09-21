@@ -6,6 +6,7 @@ export interface UserPreferences {
   dark: boolean;
   stats: boolean;
   popover: boolean;
+  autoSearchPronto: boolean;
 }
 
 export type SwitchId = keyof UserPreferences;

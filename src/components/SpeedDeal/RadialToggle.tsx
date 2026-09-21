@@ -13,7 +13,7 @@ export default function RadialToggle(props: SpeedDealToggleVariantProps) {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   return (
-    <nav className="fixed bottom-3 right-3 z-50 pointer-events-auto">
+    <nav className="fixed bottom-3 right-3 z-50 pointer-events-none">
       <div className="relative w-14 h-14 flex items-center justify-center">
         <AnimatePresence>
           {open && actions.map((action, i) => {
@@ -35,7 +35,7 @@ export default function RadialToggle(props: SpeedDealToggleVariantProps) {
                   }}
                   className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg
                              hover:scale-110 transition-transform focus:outline-none
-                             focus:ring-2 focus:ring-white/40"
+                             focus:ring-2 focus:ring-white/40 pointer-events-auto"
                   style={{ backgroundColor: action.color }}
                   aria-label={action.label}
                 >

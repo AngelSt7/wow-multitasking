@@ -6,6 +6,7 @@ export function parsePrefs(raw: Partial<MultitaskingPrefs>): MultitaskingPrefs {
   return {
     position: raw.position === "vertical" ? "vertical" : "corner",
     mode:     raw.mode === "alwaysOpen"   ? "alwaysOpen" : "onPress",
+    autoSearchPronto: raw.autoSearchPronto === true,
   };
 }
 

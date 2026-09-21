@@ -12,7 +12,7 @@ export default function VerticalToggle({
 }: SpeedDealToggleVariantProps) {
   return (
     <nav
-      className="fixed bottom-3 right-3 z-50 pointer-events-auto flex flex-col items-end gap-2"
+      className="fixed bottom-3 right-3 z-50 pointer-events-none flex flex-col items-end gap-2"
       aria-label="WOW Multitasking acciones rapidas"
     >
       <AnimatePresence>
@@ -34,7 +34,7 @@ export default function VerticalToggle({
                 action.action(e);
                 onAction?.(action.id);
               }}
-              className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center shadow-lg"
+              className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center shadow-lg pointer-events-auto"
               style={{ backgroundColor: action.color }}
               aria-label={action.label}
               title={action.label}

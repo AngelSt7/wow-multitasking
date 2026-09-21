@@ -1,84 +1,19 @@
 import { useState, useEffect } from 'react'
 import '../index.css'
-import {
-  Zap, Search,
-  Triangle, AlignRight,
-  MousePointerClick, PinIcon,
-  Share2
-} from 'lucide-react'
-import type { SwitchId, SwitchItem, UserPreferences } from '../interfaces'
+import { Triangle, AlignRight, MousePointerClick, PinIcon, Share2 } from 'lucide-react'
+import type { SwitchId, UserPreferences } from '../interfaces'
 import { useChromeStorage } from '../hooks/useGoogleStorage'
+import { Switches } from '../constants/items'
+import { TabGroup } from '../components/TabGroup/TabGroup'
+import { useMultitasking } from '../context/MultitaskingContext'
 
 type SpeedDialPosition = 'corner' | 'vertical'
 type SpeedDialMode = 'onPress' | 'alwaysOpen'
 
-interface MultitaskingPrefs {
-  position: SpeedDialPosition
-  mode: SpeedDialMode
-}
-
-const MULTITASKING_KEY = 'multitasking'
-const defaultMultitasking: MultitaskingPrefs = { position: 'corner', mode: 'onPress' }
-
-function loadMultitaskingFromChrome(): Promise<MultitaskingPrefs> {
-  return new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome.storage) {
-      console.warn(`⚠️ [Popup] Chrome Storage API no disponible`);
-      resolve(defaultMultitasking);
-      return;
-    }
-
-    try {
-      chrome.storage.local.get(MULTITASKING_KEY, (result) => {
-        const raw = result[MULTITASKING_KEY] as Partial<MultitaskingPrefs> | undefined
-        if (!raw) { resolve(defaultMultitasking); return }
-        resolve({
-          position: raw.position === 'vertical' ? 'vertical' : 'corner',
-          mode: raw.mode === 'alwaysOpen' ? 'alwaysOpen' : 'onPress',
-        })
-      })
-    } catch (error: any) {
-      if (error?.message?.includes('Extension context invalidated')) {
-        console.warn(`⚠️ [Popup] Contexto de extensión invalidado.`);
-      } else {
-        console.error(`❌ [Popup] Error cargando multitasking prefs:`, error);
-      }
-      resolve(defaultMultitasking);
-    }
-  })
-}
-
-function saveMultitaskingToChrome(prefs: MultitaskingPrefs): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome.storage) {
-      console.warn(`⚠️ [Popup] Chrome Storage API no disponible`);
-      resolve();
-      return;
-    }
-
-    try {
-      chrome.storage.local.set({ [MULTITASKING_KEY]: prefs }, resolve)
-    } catch (error: any) {
-      if (error?.message?.includes('Extension context invalidated')) {
-        console.warn(`⚠️ [Popup] Contexto de extensión invalidado al guardar.`);
-      } else {
-        console.error(`❌ [Popup] Error guardando multitasking prefs:`, error);
-      }
-      resolve();
-    }
-  })
-}
-
-const switches: SwitchItem[] = [
-  { id: 'fast', icon: Zap, name: 'Fijar fecha', desc: 'Fijar fechas en ventana' },
-  // { id: 'visor', icon: Binoculars, name: 'Visor garantia - dilación', desc: 'Botón flotante de multitarea' },
-  { id: 'popover', icon: Search, name: 'Vista rápida', desc: 'Popover con info de slots' },
-]
-
 const defaultPrefs: UserPreferences = {
   fast: false, multi: false, notif: false,
   dark: false, stats: false, popover: false,
-  visor: false,
+  visor: false, autoSearchPronto: false
 }
 
 const positionOptions = [
@@ -91,83 +26,37 @@ const modeOptions = [
   { value: 'alwaysOpen' as SpeedDialMode, label: 'Siempre abierto', Icon: PinIcon },
 ]
 
-function TabGroup<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: { value: T; label: string; Icon: React.ElementType }[]
-  value: T
-  onChange: (v: T) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-[#555] text-[10px] font-bold uppercase tracking-widest px-1">{label}</p>
-      <div className="flex gap-1.5">
-        {options.map(({ value: val, label: lbl, Icon }) => {
-          const isActive = value === val
-          return (
-            <button
-              key={val}
-              onClick={() => onChange(val)}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5
-                          border transition-all duration-200 cursor-pointer
-                          ${isActive
-                  ? 'bg-orange-500/10 border-orange-500/40 text-orange-400'
-                  : 'bg-[#222] border-[#2c2c2c] text-[#555] hover:bg-[#262626] hover:text-[#888]'
-                }`}
-            >
-              <Icon size={13} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className="text-[11.5px] font-semibold">{lbl}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 function App() {
 
-  const [shareStatus, setShareStatus] = useState<
-    "idle" | "loading" | "success"
-  >("idle");
-
-
+const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [userName, setUserName] = useState<string>('')
+  
   const { getItem, setItem } = useChromeStorage()
+  const { mtPrefs, updateMultitaskingPrefs, isPrefsLoaded } = useMultitasking();
 
   const [active, setActive] = useState<UserPreferences>(defaultPrefs)
   const [isLoaded, setIsLoaded] = useState<boolean>(false)
-  const [mtPrefs, setMtPrefs] = useState<MultitaskingPrefs>(defaultMultitasking)
-
-  const [userName, setUserName] = useState<string>('')
 
   useEffect(() => {
     const init = async () => {
-      const [saved, mt] = await Promise.all([
-        getItem<UserPreferences>('userPrefs'),
-        loadMultitaskingFromChrome(),
-      ])
+      const saved = await getItem<UserPreferences>('userPrefs')
       if (saved) {
         setActive(saved)
         if (typeof chrome !== 'undefined' && chrome.storage) {
           chrome.storage.local.set({ wow_mostrar_popover: saved.popover ?? false })
         }
       }
-      setMtPrefs(mt)
 
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { type: 'GET_USER_NAME' }, (res) => {
-          console.log("name", res.name, res)
-          if (!chrome.runtime.lastError && res?.name) {
-            setUserName(res.name)
-          }
-        })
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (tab?.id) {
+          chrome.tabs.sendMessage(tab.id, { type: 'GET_USER_NAME' }, (res) => {
+            if (!chrome.runtime.lastError && res?.name) {
+              setUserName(res.name)
+            }
+          })
+        }
       }
-
       setIsLoaded(true)
     }
     init()
@@ -181,18 +70,15 @@ function App() {
     }
   }, [active, isLoaded])
 
-  useEffect(() => {
-    if (isLoaded) saveMultitaskingToChrome(mtPrefs)
-  }, [mtPrefs, isLoaded])
-
-  const toggle = (id: SwitchId) =>
+  const toggle = (id: SwitchId) => {
     setActive(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   const setPosition = (position: SpeedDialPosition) =>
-    setMtPrefs(prev => ({ ...prev, position }))
+    updateMultitaskingPrefs({ position })
 
   const setMode = (mode: SpeedDialMode) =>
-    setMtPrefs(prev => ({ ...prev, mode }))
+    updateMultitaskingPrefs({ mode })
 
   const getSession = async () => {
     const [tab] = await chrome.tabs.query({
@@ -252,7 +138,7 @@ function App() {
     }
   };
 
-  if (!isLoaded) return <div className="bg-[#1a1a1a] w-85 h-150" />
+  if (!isLoaded || !isPrefsLoaded) return <div className="bg-[#1a1a1a] w-85 h-150" />
 
   return (
     <div className="flex flex-col items-center justify-center w-full bg-transparent">
@@ -277,7 +163,7 @@ function App() {
           Funciones
         </p>
         <div className="px-3 pb-3 flex flex-col gap-1.5">
-          {switches.map((sw) => {
+          {Switches.map((sw) => {
             const Icon = sw.icon as React.ElementType
             return (
               <div
@@ -300,7 +186,7 @@ function App() {
                     <p className="text-[#555] text-[10.5px]">{sw.desc}</p>
                   </div>
                 </div>
-                <div className={`w-10 h-5.5 rounded-full transition-all relative flex-shrink-0
+                <div className={`w-10 h-5.5 rounded-full transition-all relative shrink-0
                   ${active[sw.id] ? 'bg-orange-500' : 'bg-[#333]'}`}>
                   <div className={`absolute top-0.75 w-4 h-4 rounded-full transition-all duration-300
                     ${active[sw.id] ? 'left-5.25 bg-white shadow-sm' : 'left-0.75 bg-[#666]'}`} />
@@ -344,7 +230,7 @@ function App() {
             </p>
 
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
                 <Share2 size={15} className="text-orange-400" strokeWidth={1.8} />
               </div>
               <div>

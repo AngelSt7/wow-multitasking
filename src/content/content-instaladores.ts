@@ -1,7 +1,6 @@
-// content-instaladores.ts
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import Prueba from '../components/Pruea/Prueba';
+import DateRange from '../components/DateRange/DateRange';
 
 const injectGlobalStyles = async (): Promise<void> => {
   if (document.getElementById('heroui-global-styles')) return;
@@ -20,7 +19,7 @@ const injectAnimateCSS = async (): Promise<void> => {
     const style = document.createElement('style');
     style.id = 'animate-css';
     style.textContent = cssText;
-    document.head.appendChild(style); // como <style> no como <link>, garantiza que esté listo
+    document.head.appendChild(style);
   } catch (e) {
     console.warn('[HeroUI] animate.css no pudo cargarse', e);
   }
@@ -42,11 +41,10 @@ const mountComponent = async (): Promise<void> => {
   if (!agregarBtn) return;
 
   mounting = true;
-  console.log('[HeroUI] Botón encontrado, montando...');
 
   try {
     await injectGlobalStyles();
-    await injectAnimateCSS(); // await para que esté listo antes de montar
+    await injectAnimateCSS();
 
     const host = document.createElement('div');
     host.id = 'heroui-configuracion-root';
@@ -64,12 +62,10 @@ const mountComponent = async (): Promise<void> => {
     agregarBtn.insertAdjacentElement('afterend', host);
 
     const root = createRoot(mountPoint);
-    root.render(createElement(Prueba));
+    root.render(createElement(DateRange));
 
-    console.log('[HeroUI] Montado OK');
     observer.disconnect();
   } catch (error) {
-    console.error('[HeroUI] Error:', error);
     mounting = false;
   }
 };

@@ -13,7 +13,7 @@ export default function RadialAlwaysOpen({
   isMobile
 }: Props) {
   return (
-    <nav className="fixed bottom-3 right-3 z-50 pointer-events-auto">
+    <nav className="fixed bottom-3 right-3 z-50 pointer-events-none">
       <div className="relative w-14 h-14 flex items-center justify-center">
 
         {actions.map((action, i) => {
@@ -32,7 +32,7 @@ export default function RadialAlwaysOpen({
                   action.action(e);
                   onAction?.(action.id);
                 }}
-                className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg"
+                className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg pointer-events-auto"
                 style={{ backgroundColor: action.color }}
               >
                 <action.icon size={18} color="white" />

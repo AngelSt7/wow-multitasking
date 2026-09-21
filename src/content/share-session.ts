@@ -1,5 +1,6 @@
 import Swal from "sweetalert2";
 import { RedisService } from "../redis/RedisService";
+import { Logger } from "../log/logger";
 
 const CODE_REGEX = /^\d{6}$/;
 
@@ -11,9 +12,7 @@ function isValidCode(code: string): boolean {
   return CODE_REGEX.test(code);
 }
 
-/**
- * Compartir sesión
- */
+
 chrome.runtime.onMessage.addListener(
   async (message, _, sendResponse) => {
     if (message.type !== "SHARE_SESSION") {
@@ -53,9 +52,6 @@ chrome.runtime.onMessage.addListener(
   }
 );
 
-/**
- * Recuperar sesión
- */
 async function restoreSession() {
   try {
     if (location.pathname !== "/auth/login") {
@@ -125,4 +121,19 @@ async function restoreSession() {
   }
 }
 
+function getToken() {
+  
+  const token: string | null = localStorage.getItem('token');
+    Logger.setContext('SGC-AUTH');
+
+  if (token) {
+    chrome.storage.local.set({ sgcToken: token }, () => {
+      Logger.info("Token sucesfully stored in chrome.storage.local.");
+    });
+  } else {
+    Logger.warn("Not found token in localStorage. Please log in to Pronto first.");
+  }
+}
+
+getToken();
 restoreSession();

@@ -7,7 +7,7 @@ export default function VerticalAlwaysOpen({
 }: SpeedDealVariantCommonProps) {
   return (
     <nav
-      className="fixed bottom-3 right-3 z-50 pointer-events-auto flex flex-col items-end gap-2"
+      className="fixed bottom-3 right-3 z-50 pointer-events-none flex flex-col items-end gap-2"
       aria-label="WOW Multitasking acciones rápidas"
     >
       {[...actions].reverse().map((action, i) => (
@@ -28,7 +28,7 @@ export default function VerticalAlwaysOpen({
               onAction?.(action.id);
             }}
             className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center shadow-lg
-                       hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-white/40"
+                       hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-white/40 pointer-events-auto"
             style={{ backgroundColor: action.color }}
             aria-label={action.label}
             title={action.label}

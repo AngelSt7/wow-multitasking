@@ -1,18 +1,37 @@
+import type { UserPreferences } from "../interfaces";
+import { CacheCodesService } from "../services/cache-codes.service";
+import { ConfigTechService } from "../services/config-tech.service";
+import { ProntoUiService } from "../services/pronto-ui.service";
+import { SgcService } from "../services/sgc.service";
 import type { TecnicoResumen } from "../types/wow";
 
+const MULTITASKING_KEY = 'multitasking';
+
 export const runSearchScript = () => {
+
   const nativeSearchButton = document.querySelector(
     'button.mat-fab.bg-primary-800, button[mat-fab].mat-accent'
   ) as HTMLButtonElement;
 
   if (nativeSearchButton) {
     nativeSearchButton.click();
-    console.log('Search button clicked via native selector.');
   } else {
     const altButton = document.querySelector('ic-icon[ng-reflect-icon*="object"]')?.closest('button');
     if (altButton) {
       (altButton as HTMLButtonElement).click();
     }
+  }
+
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    chrome.storage.local.get([MULTITASKING_KEY, 'userPrefs'], (result) => {
+      const userRaw: UserPreferences = result['userPrefs'] as UserPreferences;
+
+      const isAutoSearchActive = userRaw?.autoSearchPronto === true
+
+      if (isAutoSearchActive) {
+        ProntoUiService.updateProntoAlerts();
+      }
+    });
   }
 };
 
@@ -162,6 +181,7 @@ export const runSearchScript = () => {
     estado: string | null;
     ciudadFull: string | null;
     esAG: boolean;
+    esCa: boolean;
     ts: string | null;
   }
 
@@ -255,8 +275,8 @@ export const runSearchScript = () => {
     const isBlocked = !!vex.querySelector('.bg-gray-300');
     const isEmpty = !!vex.querySelector('.border-dashed');
 
-    if (isBlocked) return { hora, contrata, tecnico, tipo, isBlocked: true, isEmpty: false, codigo: null, estado: null, ciudadFull: null, esAG: false, ts: null };
-    if (isEmpty) return { hora, contrata, tecnico, tipo, isBlocked: false, isEmpty: true, codigo: null, estado: null, ciudadFull: null, esAG: false, ts: null };
+    if (isBlocked) return { hora, contrata, tecnico, tipo, isBlocked: true, isEmpty: false, codigo: null, estado: null, ciudadFull: null, esAG: false, esCa: false, ts: null };
+    if (isEmpty) return { hora, contrata, tecnico, tipo, isBlocked: false, isEmpty: true, codigo: null, estado: null, ciudadFull: null, esAG: false, esCa: false, ts: null };
 
     // Código de servicio
     const codigoEl = vex.querySelector<HTMLElement>('[data-multitasking-ready="true"] span');
@@ -286,9 +306,9 @@ export const runSearchScript = () => {
     });
 
     // Autogestión: badge "A" en esquina superior derecha
-    const esAG = !!vex.querySelector('.absolute.top-0.right-0');
+    const textTag = vex.querySelector('.absolute.top-0.right-0')?.textContent?.trim() || null;
 
-    return { hora, contrata, tecnico, tipo, isBlocked: false, isEmpty: false, codigo, estado, ciudadFull, esAG, ts };
+    return { hora, contrata, tecnico, tipo, isBlocked: false, isEmpty: false, codigo, estado, ciudadFull, esAG: textTag === "A", esCa: textTag === "C", ts };
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -310,6 +330,7 @@ export const runSearchScript = () => {
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   <span style="color:#fff;font-weight:700;font-size:12px;flex:1">${d.hora}</span>
   ${d.esAG ? `<span style="background:#f59e0b;color:#451a03;font-size:9px;font-weight:800;border-radius:4px;padding:1px 6px;">⚡ AUTOGESTIÓN</span>` : ''}
+  ${d.esCa ? `<span style="background:#f59e0b;color:#451a03;font-size:9px;font-weight:800;border-radius:4px;padding:1px 6px;">📅 CALENDARIO</span>` : ''}
 </div>
 <div style="padding:10px 12px;color:#fff;">
   <div style="opacity:.5;font-size:9px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">${d.contrata}</div>
@@ -435,7 +456,7 @@ export const runSearchScript = () => {
   // 1. Estilo global para evitar parpadeos de selección
   const style = document.createElement('style');
   style.innerHTML = `
-        [data-copy-tecnico] {
+        [data-copy-Technician] {
             -webkit-user-select: none !important;
             user-select: none !important;
             -webkit-tap-highlight-color: transparent;
@@ -449,7 +470,7 @@ export const runSearchScript = () => {
    * 2. Busca el div con clase 'ng-tns-' que sea hermano directo de un 'mat-divider'.
    * 3. Excluye los que ya procesamos.
    */
-  const TECNICO_SELECTOR: string = 'div.card div.flex-col mat-divider + div[class*="ng-tns-"]:not([data-copy-tecnico])';
+  const TECNICO_SELECTOR: string = 'div.card div.flex-col mat-divider + div[class*="ng-tns-"]:not([data-copy-Technician])';
 
   const applyTecnicoUI = (): void => {
     const elements = document.querySelectorAll<HTMLDivElement>(TECNICO_SELECTOR);
@@ -462,7 +483,7 @@ export const runSearchScript = () => {
 
       if (!esNombreTecnico) return;
 
-      el.setAttribute('data-copy-tecnico', 'true');
+      el.setAttribute('data-copy-Technician', 'true');
 
       // --- ESTILOS DE "BOTÓN ZINC" ---
       Object.assign(el.style, {
@@ -908,8 +929,7 @@ export const runSearchScript = () => {
         }
       }
 
-      // Nombre del técnico
-      const tecnicoEl = row.querySelector<HTMLElement>('[data-copy-tecnico="true"]');
+      const tecnicoEl = row.querySelector<HTMLElement>('[data-copy-Technician="true"]');
       const nombre = tecnicoEl
         ? `${(tecnicoEl.childNodes[0] as Text)?.textContent?.trim() ?? ''} ${tecnicoEl.querySelector('span')?.textContent?.trim() ?? ''
           }`.trim()
@@ -1061,29 +1081,29 @@ export const runSearchScript = () => {
   };
 
   function parseFecha(str: string): Date | null {
-  if (!str) return null;
+    if (!str) return null;
 
-  const m = str.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d{4})(?:\s+(\d+):(\d+)\s*(AM|PM)?)?/i);
-  if (m) {
-    const mes = MESES[m[2].toLowerCase()] ?? 0;
-    let hh = m[4] ? Number(m[4]) : 0;
-    const mm = m[5] ? Number(m[5]) : 0;
-    const meridiem = m[6]?.toUpperCase();
+    const m = str.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d{4})(?:\s+(\d+):(\d+)\s*(AM|PM)?)?/i);
+    if (m) {
+      const mes = MESES[m[2].toLowerCase()] ?? 0;
+      let hh = m[4] ? Number(m[4]) : 0;
+      const mm = m[5] ? Number(m[5]) : 0;
+      const meridiem = m[6]?.toUpperCase();
 
-    if (hh <= 12) {
-      if (meridiem === 'PM' && hh !== 12) hh += 12;
-      if (meridiem === 'AM' && hh === 12) hh = 0;
+      if (hh <= 12) {
+        if (meridiem === 'PM' && hh !== 12) hh += 12;
+        if (meridiem === 'AM' && hh === 12) hh = 0;
+      }
+
+      return new Date(Number(m[3]), mes, Number(m[1]), hh, mm, 0);
     }
 
-    return new Date(Number(m[3]), mes, Number(m[1]), hh, mm, 0);
-  }
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      return new Date(str.substring(0, 10) + 'T00:00:00');
+    }
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-    return new Date(str.substring(0, 10) + 'T00:00:00');
+    return null;
   }
-
-  return null;
-}
 
   function getField(card: Element, labelText: string): string {
     const labels = card.querySelectorAll<HTMLElement>('.label');
@@ -1530,9 +1550,6 @@ export const runSearchScript = () => {
 })();
 
 (() => {
-  // Interfaces para extender elementos del DOM si fuera necesario
-  // o simplemente usamos casting para mayor velocidad en el build.
-
   const getCurrentTime = (): string =>
     new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -1546,6 +1563,10 @@ export const runSearchScript = () => {
     return sp?.textContent?.trim() || 'SIN CODIGO';
   };
 
+  const getTypeJob = (slot: HTMLElement): string => {
+    const el = slot.querySelector<HTMLElement>('[class*="slot-"] > div:first-child > div:first-child');
+    return el?.textContent?.trim() || 'SIN TIPO';
+  };
   /**
    * Busca al técnico basándose en la jerarquía de la fila (.card)
    */
@@ -1553,10 +1574,9 @@ export const runSearchScript = () => {
     const fila = btn.closest('.card') as HTMLElement | null;
     if (!fila) return 'NO ENCONTRADO';
 
-    const elTecnico = fila.querySelector('[data-copy-tecnico="true"]') as HTMLElement | null;
+    const elTecnico = fila.querySelector('[data-copy-Technician="true"]') as HTMLElement | null;
     if (!elTecnico) return 'SIN ASIGNAR';
 
-    // Clonamos para manipular el texto sin afectar la UI real
     const temp = elTecnico.cloneNode(true) as HTMLElement;
     const badge = temp.querySelector('span');
     if (badge) badge.remove();
@@ -1564,16 +1584,95 @@ export const runSearchScript = () => {
     return temp.textContent?.trim() || 'SIN NOMBRE';
   };
 
-  const makeBtn = (label: string, reporte: string, color: string, slot: HTMLElement): HTMLButtonElement => {
+  /**
+   * Helper seguro para copiar al portapapeles
+   */
+  const copyText = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const ok = document.execCommand('copy');
+        textArea.remove();
+        return ok;
+      }
+    } catch (err) {
+      console.error('Clipboard error:', err);
+      return false;
+    }
+  };
+
+  /**
+   * Feedback visual en el botón
+   */
+  const triggerButtonFeedback = (btn: HTMLButtonElement, okText: string = 'OK', okColor: string = '#10b981', defaultColor: string = '') => {
+    const originalText = btn.textContent;
+    btn.textContent = okText;
+    btn.style.background = okColor;
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = defaultColor;
+      btn.disabled = false;
+    }, 1000);
+  };
+
+  /**
+   * Constructor de botones con soporte para callback asíncrono
+   */
+  const makeBtn = (
+    label: string,
+    reporte: string,
+    color: string,
+    slot: HTMLElement,
+    customAction?: () => Promise<string | void>
+  ): HTMLButtonElement => {
     const btn = document.createElement('button');
     btn.textContent = label;
-    btn.type = 'button'; // Evita comportamientos de submit por defecto
-    btn.style.cssText = `background:${color};color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.62rem;cursor:pointer;font-weight:700;transition:opacity 0.15s;`;
+    btn.type = 'button';
+    btn.style.cssText = `background:${color};color:#fff;border:none;border-radius:20px;font-weight:700;padding:2px 8px;font-size:0.62rem;cursor:pointer;transition:opacity 0.15s;`;
 
-    btn.addEventListener('click', (e: MouseEvent) => {
+    btn.addEventListener('click', async (e: MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
 
+      // Si tiene una acción personalizada (como generar el mensaje de SgcService)
+      if (customAction) {
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        try {
+          const customMessage = await customAction();
+          if (customMessage) {
+            await copyText(customMessage);
+            btn.textContent = 'OK';
+            btn.style.background = '#10b981';
+          } else {
+            btn.textContent = 'ERR';
+            btn.style.background = '#ef4444';
+          }
+        } catch (error) {
+          console.error(error);
+          btn.textContent = 'ERR';
+          btn.style.background = '#ef4444';
+        } finally {
+          setTimeout(() => {
+            btn.textContent = label;
+            btn.style.background = color;
+            btn.disabled = false;
+          }, 1000);
+        }
+        return;
+      }
+
+      // Flujo normal de reporte
       const codigo = getCode(slot);
       const tecnico = getTecnicoRelativo(btn);
       const depto = getDepartamento();
@@ -1587,15 +1686,10 @@ export const runSearchScript = () => {
         `*OBSERVACIÓN:* `,
       ].join('\n');
 
-      navigator.clipboard.writeText(text).then(() => {
-        const originalText = btn.textContent;
-        btn.textContent = 'OK';
-        btn.style.background = '#10b981';
-        setTimeout(() => {
-          btn.textContent = originalText;
-          btn.style.background = color;
-        }, 1000);
-      }).catch(err => console.error('Clipboard error:', err));
+      const success = await copyText(text);
+      if (success) {
+        triggerButtonFeedback(btn, 'OK', '#10b981', color);
+      }
     });
 
     return btn;
@@ -1608,30 +1702,42 @@ export const runSearchScript = () => {
       const slot = node as HTMLElement;
       if (slot.querySelector('.custom-btns')) return;
 
-      const innerSlot = slot.querySelector('.slot-pendiente, .slot-urgente, .slot-programado, .slot-en-proceso') as HTMLElement | null;
+      const innerSlot = slot.querySelector('.slot-pendiente, .slot-proceso') as HTMLElement | null;
       if (!innerSlot) return;
 
       const codigo = getCode(slot);
       if (codigo === 'SIN CODIGO') return;
 
-      // ─── Leer el tipo de servicio ─────────────────────────────
       const tipoEl = innerSlot.querySelector<HTMLElement>('div > div:first-child');
       const tipoTexto = tipoEl?.textContent?.trim().toLowerCase() ?? '';
-
       const esInstalacion = tipoTexto.includes('instalac');
-      // ─────────────────────────────────────────────────────────
+      const getSlotStatus = (innerSlot: HTMLElement | null) => {
+        return {
+          isPendiente: innerSlot?.classList.contains('slot-pendiente') ?? false,
+          isProceso: innerSlot?.classList.contains('slot-proceso') ?? false,
+        };
+      };
 
+      const status = getSlotStatus(innerSlot);
       const container = document.createElement('div');
       container.className = 'custom-btns';
       container.style.cssText = 'display:flex;gap:4px;margin-top:6px;justify-content:center;border-top:1px solid rgba(0,0,0,0.05);padding-top:4px;';
 
       if (esInstalacion) {
-        // Solo instalaciones tienen IT / SC / DS
-        container.appendChild(makeBtn('IT', 'IMPOSIBILIDAD TÉCNICA', '#C71256', slot));
-        container.appendChild(makeBtn('SC', 'SIN CONTACTO', '#6366f1', slot));
-        container.appendChild(makeBtn('DS', 'DESISTE', '#f59e0b', slot));
+        container.appendChild(makeBtn('IT', 'IMPOSIBILIDAD TÉCNICA', '#BA7517', slot));
+        if (status.isPendiente) {
+          container.appendChild(makeBtn('SC', 'SIN CONTACTO', '#5F5E5A', slot));
+        }
+        container.appendChild(makeBtn('DS', 'DESISTE', '#A32D2D', slot));
       }
-      // Si no es instalación, container queda vacío → no lo agregues
+
+      container.appendChild(makeBtn('CI', 'COPIAR INFO', '#679AB5', slot, async () => {
+
+        const targetId = CacheCodesService.getItem(codigo)
+
+        return await SgcService.buildMessage(targetId, getTypeJob(slot));
+      }));
+
       if (container.children.length === 0) return;
 
       innerSlot.appendChild(container);
@@ -1654,6 +1760,94 @@ export const runSearchScript = () => {
 
 })();
 
+(function () {
+  'use strict';
+
+  const BASE_URL = 'https://sgc.wowperu.pe/instalaciones_v2/configuracion-instaladores';
+
+  function resolverIdInstalador(nombreTecnico: string): number | null {
+    return ConfigTechService.getTechIdByKey(nombreTecnico);
+  }
+
+  function extraerNombreTecnico(container: HTMLElement): string | null {
+    const el = container.querySelector('[data-copy-technician="true"]');
+    if (!el) return null;
+
+    const clone = el.cloneNode(true) as HTMLElement;
+    const span = clone.querySelector('span');
+    if (span) span.remove();
+
+    return clone.textContent.trim();
+  }
+
+  function makeGearIcon(nombreTecnico: string) {
+    const icon = document.createElement('span');
+    icon.className = 'config-instalador-gear';
+    icon.title = 'Configuración del instalador';
+    icon.setAttribute('role', 'button');
+    icon.setAttribute('aria-label', 'Abrir configuración del instalador');
+    icon.textContent = '⚙️';
+    icon.style.cssText = [
+      'cursor:pointer',
+      'display:inline-flex',
+      'align-items:center',
+      'justify-content:center',
+      'font-size:14px',
+      'opacity:0.75',
+      'transition:opacity 0.15s ease-in-out, transform 0.15s ease-in-out',
+      'vertical-align:middle'
+    ].join(';');
+
+    icon.addEventListener('mouseenter', () => {
+      icon.style.opacity = '1';
+      icon.style.transform = 'scale(1.15)';
+    });
+    icon.addEventListener('mouseleave', () => {
+      icon.style.opacity = '0.75';
+      icon.style.transform = 'scale(1)';
+    });
+
+    icon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const id = resolverIdInstalador(nombreTecnico);
+      if (!id) {
+        console.warn('[config-instalador] no se pudo resolver el ID para:', nombreTecnico);
+        return;
+      }
+
+      const url = `${BASE_URL}/${id}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+
+    return icon;
+  }
+
+  function inject() {
+    const containers = document.querySelectorAll('[data-copy-technician="true"]');
+
+    containers.forEach((el) => {
+      const wrapper = el.parentElement as HTMLElement | null;
+      if (!wrapper || wrapper.querySelector('.config-instalador-gear')) return;
+
+      const statusContainer = wrapper.querySelector<HTMLElement>('.flex.gap-2.mt-2');
+      if (!statusContainer) return;
+
+      const nombreTecnico = extraerNombreTecnico(wrapper);
+      if (!nombreTecnico) return;
+
+      const gear = makeGearIcon(nombreTecnico);
+      statusContainer.appendChild(gear);
+    });
+  }
+
+  inject();
+
+  const observer = new MutationObserver(() => inject());
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
+
 (async function injectUbigeosToUI(): Promise<void> {
   const dataStorage = await chrome.storage.local.get(['listTechnicians']) as { listTechnicians?: TecnicoResumen[] };
   const tecnicosData: TecnicoResumen[] = dataStorage.listTechnicians || [];
@@ -1666,7 +1860,7 @@ export const runSearchScript = () => {
   const tecnicoCards: NodeListOf<HTMLDivElement> = document.querySelectorAll('div.card.p-5.grid.grid-cols-9');
 
   tecnicoCards.forEach((card: HTMLDivElement) => {
-    const nameContainer = card.querySelector<HTMLDivElement>('[data-copy-tecnico="true"]');
+    const nameContainer = card.querySelector<HTMLDivElement>('[data-copy-Technician="true"]');
     if (!nameContainer) return;
 
     const rawName: string = nameContainer.textContent?.trim() || "";
@@ -1718,6 +1912,189 @@ export const runSearchScript = () => {
     }
   });
 
+})();
+
+interface ClientMeta {
+  codigo: string;
+  cliente: string;
+  tipoServicio: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  mensajeWsp: string;
+}
+
+const SERVICIO_ADAPTER: Record<string, string> = {
+  'Instalación de servicio': 'la *instalación de su servicio*',
+  'Instalación de telefono': 'la *instalación de su línea telefónica*',
+  'Instalación de repetidor': 'la *instalación de su repetidor*',
+  'Instalación de repetidor por posicionamiento': 'la *instalación de repetidor por posicionamiento*',
+  'Cambio de teléfono': 'el *cambio de su equipo telefónico*',
+
+  'Mudanza sin costo': 'su *solicitud de mudanza*',
+  'Mudanza con costo': 'su *solicitud de mudanza*',
+  'Mudanza externa sin costo': 'su *solicitud de mudanza externa*',
+  'Mudanza externa con costo': 'su *solicitud de mudanza externa*',
+
+  'Soporte Técnico Sin Costo': 'su visita de *soporte técnico*',
+  'Soporte Técnico Con Costo': 'su visita de *soporte técnico*',
+  'Preventivo': 'su mantenimiento *preventivo*',
+  'Recableado Acometida Drop': 'el *recableado de su acometida drop*',
+  'Reordenamiento Acometida Drop': 'el *reordenamiento de su acometida drop*',
+  'Control de Calidad': 'su visita de *control de calidad*',
+  'Noc_infraestructura': 'la atención técnica de *infraestructura NOC*',
+
+  'Retenciones': 'su gestión en el área de *retenciones*',
+  'Retenciones Soporte Técnico Especializado': 'su *soporte técnico especializado de retenciones*'
+};
+
+function formatServicePhrase(rawType: string): string {
+  const normalized = rawType.trim();
+  if (SERVICIO_ADAPTER[normalized]) {
+    return SERVICIO_ADAPTER[normalized];
+  }
+  return `su solicitud de *${normalized}*`;
+}
+
+export const getMetaContent = (): ClientMeta | null => {
+  const modal = document.querySelector('mat-dialog-container');
+  const base = document.getElementById("vex-quick-header")
+  if (!modal || !base) return null;
+
+  const rawText = (modal as HTMLElement).innerText.replace(/\r/g, '').trim();
+
+  // 1. Extracciones Regex
+  const codigo : string | undefined = base?.children[2]?.lastElementChild?.firstChild?.textContent?.trim()
+  const cliente = rawText.match(/Cliente\s*[:\n]\s*([^\n\r|]+)/i)?.[1]?.trim().toUpperCase() ?? '';
+
+  // Captura el tipo debajo del técnico en el header
+  const tipoServicio = rawText.match(/T[ée]cnico[\s\S]*?\n[^\n]+\n([^\n]+)/i)?.[1]?.trim() ?? 'Instalación de servicio';
+
+  const ubication : string[] = base?.lastElementChild?.lastElementChild?.textContent.trim().split(" / ") ?? []
+
+  // 2. Saludo horario
+  const hour = new Date().getHours();
+  const saludo = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+
+  // 3. Ubicación: DEPARTAMENTO - PROVINCIA - DISTRITO
+  const ubicacion = [ubication[2], ubication[1], ubication[0]].filter(Boolean).join(' - ');
+
+  const servicioAdaptado = formatServicePhrase(tipoServicio);
+
+  const mensajeWsp = `👋 ${saludo}, le hablamos del área de programaciones de *WOW*, respecto a ${servicioAdaptado} a nombre de *${cliente}*, en el predio ubicado en *${ubicacion}* (código: *${codigo}*).`;
+
+  return {
+    codigo: codigo || '',
+    cliente,
+    tipoServicio,
+    departamento: ubication[2] || '',
+    provincia: ubication[1] || '',
+    distrito: ubication[0] || '',
+    mensajeWsp
+  };
+};
+
+(() => {
+  const PHONE_REGEX = /\b(9\d{8})\b/g;
+
+  function wrapPhones(root = document.body) {
+    if (!root || root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE) return;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !PHONE_REGEX.test(node.nodeValue)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Evitar elementos interactivos o ya procesados
+        if (node.parentElement?.closest(".wsp-clickable, script, style, textarea, input, mat-icon")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+
+    const nodesToReplace = [];
+    while (walker.nextNode()) {
+      nodesToReplace.push(walker.currentNode);
+    }
+
+    nodesToReplace.forEach((textNode) => {
+      const parent = textNode.parentNode;
+      if (!parent) return;
+
+      const html = (textNode.nodeValue ?? "").replace(PHONE_REGEX, (match) => {
+        return `<span class="wsp-clickable" data-phone="${match}" style="cursor:pointer; color:#2596BE; font-weight:700" title="Abrir en WhatsApp Web">${match}</span>`;
+      });
+
+      const temp = document.createElement("span");
+      temp.innerHTML = html;
+
+      while (temp.firstChild) {
+        parent.insertBefore(temp.firstChild, textNode);
+      }
+      parent.removeChild(textNode);
+    });
+  }
+
+  // 👋 Buenas tardes, le hablamos del área de programaciones de *WOW*, sobre su servicio de *Instalación de servicio* a nombre de *, TRADE SANDDER GROUP S.A.C.*, ubicado en *AREQUIPA - AREQUIPA - CERRO COLORADO* con código de servicio *20260785161*. 
+
+  document.addEventListener("click", (e) => {
+    const target = e.target instanceof Element
+      ? e.target.closest(".wsp-clickable")
+      : null;
+    if (target) {
+      const phone = target.getAttribute("data-phone");
+      if (!phone) return;
+
+      const meta = getMetaContent();
+      const message = meta ? meta.mensajeWsp : "Hola, me comunico de WOW Perú respecto a su servicio.";
+
+      if (phone) {
+        chrome.runtime.sendMessage({ 
+          action: "open_whatsapp", 
+          phone,
+          message
+        });
+      }
+    }
+  });
+
+  let debounceTimeout : null | number | undefined = null;
+  const observer = new MutationObserver((mutations) => {
+    let shouldScan = false;
+
+    for (const mutation of mutations) {
+      const mutationTarget = mutation.target instanceof Element ? mutation.target : null;
+
+      if (mutationTarget?.classList.contains("wsp-clickable") || 
+          mutationTarget?.closest(".wsp-clickable")) {
+        continue;
+      }
+
+      if (mutation.addedNodes.length > 0) {
+        shouldScan = true;
+        break;
+      }
+    }
+
+    if (shouldScan) {
+      clearTimeout(debounceTimeout === null ? undefined : debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        const dialog = document.querySelector("mat-dialog-container");
+        if (dialog) {
+          wrapPhones(dialog as HTMLElement);
+        }
+      }, 100);
+    }
+  });
+
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true,
+    characterData: true // Detecta cuando Angular actualiza valores de texto en caliente
+  });
+
+  wrapPhones(document.body);
 })();
 
 // (function () {
@@ -1810,7 +2187,7 @@ export const runSearchScript = () => {
 //   function getTecnicoDesdeBtn(btn: HTMLButtonElement): string {
 //     const fila = btn.closest('.card') as HTMLElement | null;
 //     if (!fila) return 'NO ENCONTRADO';
-//     const el = fila.querySelector('[data-copy-tecnico="true"]') as HTMLElement | null;
+//     const el = fila.querySelector('[data-copy-Technician="true"]') as HTMLElement | null;
 //     if (!el) return 'SIN ASIGNAR';
 //     const temp = el.cloneNode(true) as HTMLElement;
 //     temp.querySelector('span')?.remove();

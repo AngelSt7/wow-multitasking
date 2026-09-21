@@ -95,8 +95,13 @@ function getSlotInfo(el: HTMLElement) {
 
 function getCardExtras(card: HTMLElement) {
   const ciudad = card.querySelector('[ng-reflect-message*=" - "]')?.textContent?.trim() || null;
-  const esAutoGestion = !!card.closest('.relative')?.querySelector('.bg-gray-900');
-  return { ciudad, esAutoGestion };
+  const especial = card.closest('.relative')?.querySelector('.bg-gray-900')?.textContent?.trim() || null;
+  
+  return { 
+    ciudad, 
+    esAutoGestion: especial === "A", 
+    esCalendario: especial === "C" 
+  };
 }
 
 // ── Mouse handler ────────────────────────────────────────────
@@ -111,7 +116,7 @@ const onMouseMove = (e: MouseEvent) => {
   const info = getSlotInfo(card || asignar);
   if (!info) { popover.style.display = 'none'; return; }
   const { hora, tecnico, tipo } = info;
-  const { ciudad, esAutoGestion } = card ? getCardExtras(card) : { ciudad: null, esAutoGestion: false };
+  const { ciudad, esAutoGestion, esCalendario } = card ? getCardExtras(card) : { ciudad: null, esAutoGestion: false, esCalendario: false };
   popover.style.background = card ? '#4a0080' : '#5a6070';
   popover.innerHTML = `
     <div style="font-weight:bold;margin-bottom:4px;">🕐 ${hora}</div>
@@ -119,6 +124,7 @@ const onMouseMove = (e: MouseEvent) => {
     ${tipo ? `<div style="opacity:0.75;font-size:11px;">${tipo}</div>` : ''}
     ${ciudad ? `<div style="margin-top:5px;font-size:11px;opacity:0.85;">📍 ${ciudad}</div>` : ''}
     ${esAutoGestion ? `<div style="margin-top:4px;font-size:11px;background:rgba(255,255,255,0.15);border-radius:4px;padding:2px 6px;display:inline-block;">⚙️ Autogestión</div>` : ''}
+    ${esCalendario ? `<div style="margin-top:4px;font-size:11px;background:rgba(255,255,255,0.15);border-radius:4px;padding:2px 6px;display:inline-block;">📅 Calendario</div>` : ''}
   `;
   popover.style.display = 'block';
   popover.style.left = (e.clientX + 15) + 'px';

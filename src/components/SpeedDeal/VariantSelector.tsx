@@ -69,7 +69,7 @@ export default function VariantSelector({ prefs, onChange, onClose }: VariantSel
           return (
             <button
               key={`${variant.position}-${variant.mode}`}
-              onClick={() => handleVariantClick({ position: variant.position, mode: variant.mode })}
+              onClick={() => handleVariantClick({ position: variant.position, mode: variant.mode, autoSearchPronto: prefs.autoSearchPronto })}
               className={`w-full px-4 py-3 text-left border-b border-white/5 transition-all
                 ${isSelected ? "bg-white/10 border-l-2 border-l-blue-500" : "hover:bg-white/5"}
               `}

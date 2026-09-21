@@ -1,14 +1,14 @@
 import { Button, DateField, DateRangePicker, Label, RangeCalendar, type DateValue, type RangeValue } from "@heroui/react";
-import { CreateException } from "../../services/CreateException.service";
 import { useState } from "react";
 import Swal from "sweetalert2";
+import { CreateException } from "../../services/CreateException.service";
 
 const getInstaladorId = (): number => {
-  const match = window.location.pathname.match(/\/configuracion-instaladores\/(\d+)/);
-  return match ? Number(match[1]) : 0;
+    const match = window.location.pathname.match(/\/configuracion-instaladores\/(\d+)/);
+    return match ? Number(match[1]) : 0;
 };
 
-export default function Prueba() {
+export default function DateRange() {
 
     const [selectedDates, setSelectedDates] = useState<string[] | null>(null);
     const [loading, setLoading] = useState(false);
@@ -52,8 +52,8 @@ export default function Prueba() {
                 html: `Se registraron <b>${cantidadDias}</b> día${cantidadDias !== 1 ? 's' : ''} correctamente.`,
                 confirmButtonText: 'Aceptar',
                 confirmButtonColor: '#22c55e',
-                allowOutsideClick: false, // ← no se cierra clickando afuera
-                allowEscapeKey: false,    // ← no se cierra con ESC
+                allowOutsideClick: false,
+                allowEscapeKey: false,  
                 showClass: {
                     popup: 'animate__animated animate__bounceIn'
                 },
@@ -63,7 +63,7 @@ export default function Prueba() {
             });
 
             if (result.isConfirmed) {
-                window.location.reload(); // ← recarga al dar Aceptar
+                window.location.reload(); 
             }
 
         } catch (e) {

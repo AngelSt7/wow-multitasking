@@ -7,6 +7,7 @@ export type SpeedDialMode = "onPress" | "alwaysOpen";
 export interface MultitaskingPrefs {
   position: SpeedDialPosition;
   mode: SpeedDialMode;
+  autoSearchPronto: boolean;
 }
 
 export interface SpeedDialAction {

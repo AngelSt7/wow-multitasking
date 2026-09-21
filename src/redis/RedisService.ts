@@ -1,7 +1,6 @@
 export class RedisService {
-  private static URL = "https://humorous-tarpon-147273.upstash.io";
-  private static TOKEN = "gQAAAAAAAj9JAAIgcDI2MThlNjkwODJlZTc0ODVlYjU2NDQ2MzdjNmZmNzM3NA";
-
+  private static URL = "https://sterling-starfish-172691.upstash.io";
+  private static TOKEN = "gQAAAAAAAqKTAAIgcDFiY2NmNjkwNzg2OTA0ZmE3YjkzNjk2YTM5YTI1NmRiNg";
   /**
    * Envía comandos generales mediante POST a Upstash (Pipeline / Batching ready)
    */
