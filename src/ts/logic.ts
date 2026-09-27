@@ -1624,77 +1624,109 @@ export const runSearchScript = () => {
     }, 1000);
   };
 
-  /**
-   * Constructor de botones con soporte para callback asíncrono
-   */
-  const makeBtn = (
-    label: string,
-    reporte: string,
-    color: string,
-    slot: HTMLElement,
-    customAction?: () => Promise<string | void>
-  ): HTMLButtonElement => {
-    const btn = document.createElement('button');
-    btn.textContent = label;
-    btn.type = 'button';
-    btn.style.cssText = `background:${color};color:#fff;border:none;border-radius:20px;font-weight:700;padding:2px 8px;font-size:0.62rem;cursor:pointer;transition:opacity 0.15s;`;
+  type ServiceType = 'INS' | 'SST' | 'ALL';
 
-    btn.addEventListener('click', async (e: MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
+const makeBtn = (
+  serviceType: ServiceType,
+  type: string | null,          
+  label: string,
+  reporte: string,
+  color: string,
+  slot: HTMLElement,
+  customAction?: () => Promise<string | void>
+): HTMLButtonElement => {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.type = 'button';
+  btn.style.cssText = `background:${color};color:#fff;border:none;border-radius:20px;font-weight:700;padding:2px 8px;font-size:0.62rem;cursor:pointer;transition:opacity 0.15s;`;
 
-      // Si tiene una acción personalizada (como generar el mensaje de SgcService)
-      if (customAction) {
-        btn.disabled = true;
-        btn.textContent = '...';
+  btn.addEventListener('click', async (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
 
-        try {
-          const customMessage = await customAction();
-          if (customMessage) {
-            await copyText(customMessage);
-            btn.textContent = 'OK';
-            btn.style.background = '#10b981';
-          } else {
-            btn.textContent = 'ERR';
-            btn.style.background = '#ef4444';
-          }
-        } catch (error) {
-          console.error(error);
+    // Acción personalizada (como SgcService / CI)
+    if (customAction) {
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      try {
+        const customMessage = await customAction();
+        if (customMessage) {
+          await copyText(customMessage);
+          btn.textContent = 'OK';
+          btn.style.background = '#10b981';
+        } else {
           btn.textContent = 'ERR';
           btn.style.background = '#ef4444';
-        } finally {
-          setTimeout(() => {
-            btn.textContent = label;
-            btn.style.background = color;
-            btn.disabled = false;
-          }, 1000);
         }
-        return;
+      } catch (error) {
+        console.error(error);
+        btn.textContent = 'ERR';
+        btn.style.background = '#ef4444';
+      } finally {
+        setTimeout(() => {
+          btn.textContent = label;
+          btn.style.background = color;
+          btn.disabled = false;
+        }, 1000);
       }
+      return;
+    }
 
-      // Flujo normal de reporte
-      const codigo = getCode(slot);
-      const tecnico = getTecnicoRelativo(btn);
-      const depto = getDepartamento();
+    // Datos base comunes
+    const codigo = getCode(slot);
+    const tecnico = getTecnicoRelativo(btn);
+    const depto = getDepartamento();
+    const hora = getCurrentTime();
 
-      const text = [
+    let lines: string[] = [];
+
+    if (serviceType === 'INS') {
+      // Plantilla fija para Instalaciones (sin campo TIPO)
+      lines = [
         `*CODIGO:* ${codigo}`,
         `*DEPARTAMENTO:* ${depto}`,
         `*TECNICO:* ${tecnico.toUpperCase()}`,
-        `*HORA:* ${getCurrentTime()}`,
+        `*HORA:* ${hora}`,
         `*REPORTE:* ${reporte}`,
         `*OBSERVACIÓN:* `,
-      ].join('\n');
-
-      const success = await copyText(text);
-      if (success) {
-        triggerButtonFeedback(btn, 'OK', '#10b981', color);
+      ];
+    } else {
+      // Plantilla para Soporte Técnico (SST)
+      if (type === 'REPROGRAMADA') {
+        lines = [
+          `*TIPO:* ${type}`,
+          `*CODIGO:* ${codigo}`,
+          `*DEPARTAMENTO:* ${depto}`,
+          `*TECNICO:* ${tecnico.toUpperCase()}`,
+          `*HORA:* ${hora}`,
+          `*MOTIVO:* ${reporte}`,
+          `*NUEVO HORARIO:* `,
+          `*OBSERVACIÓN:* `,
+        ];
+      } else {
+        // REPORTADA (SC, DS), IMPOSIBILIDAD TÉCNICA (IT), etc.
+        lines = [
+          `*TIPO:* ${type}`,
+          `*CODIGO:* ${codigo}`,
+          `*DEPARTAMENTO:* ${depto}`,
+          `*TECNICO:* ${tecnico.toUpperCase()}`,
+          `*HORA:* ${hora}`,
+          `*REPORTE:* ${reporte}`,
+          `*OBSERVACIÓN:* `,
+        ];
       }
-    });
+    }
 
-    return btn;
-  };
+    const success = await copyText(lines.join('\n'));
+    if (success) {
+      triggerButtonFeedback(btn, 'OK', '#10b981', color);
+    }
+  });
 
+  return btn;
+};
+  
   const inject = (): void => {
     const slots = document.querySelectorAll('vex-calendario-slot');
 
@@ -1709,8 +1741,8 @@ export const runSearchScript = () => {
       if (codigo === 'SIN CODIGO') return;
 
       const tipoEl = innerSlot.querySelector<HTMLElement>('div > div:first-child');
-      const tipoTexto = tipoEl?.textContent?.trim().toLowerCase() ?? '';
-      const esInstalacion = tipoTexto.includes('instalac');
+
+      const esInstalacion = tipoEl?.firstChild?.textContent === "Instalación de servicio"
       const getSlotStatus = (innerSlot: HTMLElement | null) => {
         return {
           isPendiente: innerSlot?.classList.contains('slot-pendiente') ?? false,
@@ -1723,15 +1755,21 @@ export const runSearchScript = () => {
       container.className = 'custom-btns';
       container.style.cssText = 'display:flex;gap:4px;margin-top:6px;justify-content:center;border-top:1px solid rgba(0,0,0,0.05);padding-top:4px;';
 
-      if (esInstalacion) {
-        container.appendChild(makeBtn('IT', 'IMPOSIBILIDAD TÉCNICA', '#BA7517', slot));
-        if (status.isPendiente) {
-          container.appendChild(makeBtn('SC', 'SIN CONTACTO', '#5F5E5A', slot));
-        }
-        container.appendChild(makeBtn('DS', 'DESISTE', '#A32D2D', slot));
-      }
+      const buildType = esInstalacion ? 'INS' : 'SST'
 
-      container.appendChild(makeBtn('CI', 'COPIAR INFO', '#679AB5', slot, async () => {
+      container.appendChild(makeBtn(buildType, esInstalacion ? null : 'IMPOSIBILIDAD TÉCNICA',  'IT', '', '#BA7517', slot));
+      if (status.isPendiente) {
+        container.appendChild(makeBtn(buildType, esInstalacion ? null : 'REPORTADA', 'SC', 'SIN CONTACTO', '#5F5E5A', slot));
+      }
+      container.appendChild(makeBtn(buildType, esInstalacion ? null : 'REPORTADA',  'DS', 'DESISTE', '#A32D2D', slot));
+
+if (!esInstalacion && status.isPendiente) {
+  container.appendChild(
+    makeBtn('SST', 'REPROGRAMADA', 'RP', 'CLIENTE REPROGRAMA', '#489a4e', slot)
+  );
+}
+
+      container.appendChild(makeBtn(buildType, null,  'CI', 'COPIAR INFO', '#679AB5', slot, async () => {
 
         const targetId = CacheCodesService.getItem(codigo)
 
@@ -1964,13 +2002,13 @@ export const getMetaContent = (): ClientMeta | null => {
   const rawText = (modal as HTMLElement).innerText.replace(/\r/g, '').trim();
 
   // 1. Extracciones Regex
-  const codigo : string | undefined = base?.children[2]?.lastElementChild?.firstChild?.textContent?.trim()
+  const codigo: string | undefined = base?.children[2]?.lastElementChild?.firstChild?.textContent?.trim()
   const cliente = rawText.match(/Cliente\s*[:\n]\s*([^\n\r|]+)/i)?.[1]?.trim().toUpperCase() ?? '';
 
   // Captura el tipo debajo del técnico en el header
   const tipoServicio = rawText.match(/T[ée]cnico[\s\S]*?\n[^\n]+\n([^\n]+)/i)?.[1]?.trim() ?? 'Instalación de servicio';
 
-  const ubication : string[] = base?.lastElementChild?.lastElementChild?.textContent.trim().split(" / ") ?? []
+  const ubication: string[] = base?.lastElementChild?.lastElementChild?.textContent.trim().split(" / ") ?? []
 
   // 2. Saludo horario
   const hour = new Date().getHours();
@@ -2050,8 +2088,8 @@ export const getMetaContent = (): ClientMeta | null => {
       const message = meta ? meta.mensajeWsp : "Hola, me comunico de WOW Perú respecto a su servicio.";
 
       if (phone) {
-        chrome.runtime.sendMessage({ 
-          action: "open_whatsapp", 
+        chrome.runtime.sendMessage({
+          action: "open_whatsapp",
           phone,
           message
         });
@@ -2059,15 +2097,15 @@ export const getMetaContent = (): ClientMeta | null => {
     }
   });
 
-  let debounceTimeout : null | number | undefined = null;
+  let debounceTimeout: null | number | undefined = null;
   const observer = new MutationObserver((mutations) => {
     let shouldScan = false;
 
     for (const mutation of mutations) {
       const mutationTarget = mutation.target instanceof Element ? mutation.target : null;
 
-      if (mutationTarget?.classList.contains("wsp-clickable") || 
-          mutationTarget?.closest(".wsp-clickable")) {
+      if (mutationTarget?.classList.contains("wsp-clickable") ||
+        mutationTarget?.closest(".wsp-clickable")) {
         continue;
       }
 
@@ -2088,8 +2126,8 @@ export const getMetaContent = (): ClientMeta | null => {
     }
   });
 
-  observer.observe(document.body, { 
-    childList: true, 
+  observer.observe(document.body, {
+    childList: true,
     subtree: true,
     characterData: true // Detecta cuando Angular actualiza valores de texto en caliente
   });
